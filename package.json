@@ -1,0 +1,16 @@
+{
+  "name": "shopify-draft-order-editor",
+  "version": "1.0.0",
+  "description": "MVP app to edit Shopify draft orders",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.0.3",
+    "node-fetch": "^3.3.0"
+  }
+}

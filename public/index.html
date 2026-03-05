@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopify Draft Order Editor</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f6f6f6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      margin-bottom: 30px;
+      color: #333;
+    }
+
+    .search-section {
+      margin-bottom: 30px;
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 12px 24px;
+      background: #000;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    button:hover {
+      background: #333;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+
+    .success {
+      background: #efe;
+      border: 1px solid #cfc;
+      color: #3c3;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+
+    .order-details {
+      margin-top: 30px;
+      padding-top: 30px;
+      border-top: 1px solid #eee;
+    }
+
+    .order-header {
+      margin-bottom: 20px;
+    }
+
+    .order-header h2 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .order-info {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .info-item {
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 4px;
+    }
+
+    .info-label {
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      color: #333;
+      font-weight: 500;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    th {
+      background: #f5f5f5;
+      padding: 12px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      border-bottom: 1px solid #ddd;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    td input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .price-input {
+      font-family: 'Courier New', monospace;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📦 Shopify Draft Order Editor</h1>
+
+    <div class="search-section">
+      <input
+        type="text"
+        id="draftOrderId"
+        placeholder="Enter Draft Order ID (e.g., 123456789)"
+      />
+      <button onclick="fetchDraftOrder()">Fetch Order</button>
+    </div>
+
+    <div id="message"></div>
+    <div id="orderContent"></div>
+  </div>
+
+  <script>
+    async function fetchDraftOrder() {
+      const draftOrderId = document.getElementById('draftOrderId').value.trim();
+      const messageDiv = document.getElementById('message');
+      const contentDiv = document.getElementById('orderContent');
+
+      if (!draftOrderId) {
+        messageDiv.innerHTML = '<div class="error">Please enter a Draft Order ID</div>';
+        return;
+      }
+
+      messageDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+      contentDiv.innerHTML = '';
+
+      try {
+        const response = await fetch(`/api/draft-order/${draftOrderId}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch order');
+        }
+
+        if (!data) {
+          throw new Error('Order not found');
+        }
+
+        displayOrder(data);
+        messageDiv.innerHTML = '';
+      } catch (error) {
+        messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    function displayOrder(order) {
+      const contentDiv = document.getElementById('orderContent');
+      const lineItems = order.lineItems?.edges?.map(e => e.node) || [];
+
+      const customerName = order.customer
+        ? `${order.customer.firstName} ${order.customer.lastName}`
+        : 'No customer';
+
+      let html = `
+        <div class="order-details">
+          <div class="order-header">
+            <h2>Draft Order #${order.number}</h2>
+          </div>
+
+          <div class="order-info">
+            <div class="info-item">
+              <div class="info-label">Customer</div>
+              <div class="info-value">${customerName}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Email</div>
+              <div class="info-value">${order.email || 'N/A'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Current Total</div>
+              <div class="info-value">$${parseFloat(order.totalPrice.amount).toFixed(2)}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Subtotal</div>
+              <div class="info-value">$${parseFloat(order.subtotalPrice.amount).toFixed(2)}</div>
+            </div>
+          </div>
+
+          <h3 style="margin-bottom: 15px; color: #333;">Line Items</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="lineItemsTable">
+      `;
+
+      lineItems.forEach((item, index) => {
+        const unitPrice = parseFloat(item.originalUnitPrice || '0');
+        const total = unitPrice * item.quantity;
+        html += `
+          <tr>
+            <td>${item.title}</td>
+            <td>
+              <input
+                type="number"
+                class="quantity-input"
+                data-index="${index}"
+                value="${item.quantity}"
+                min="1"
+              />
+            </td>
+            <td>
+              <input
+                type="number"
+                class="price-input"
+                data-index="${index}"
+                value="${unitPrice.toFixed(2)}"
+                step="0.01"
+                min="0"
+              />
+            </td>
+            <td>$<span class="line-total" data-index="${index}">${total.toFixed(2)}</span></td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+
+          <div class="actions">
+            <button onclick="window.open('/invoice.html?id=${order.id.replace('gid://shopify/DraftOrder/', '')}', '_blank')" style="background: #666;">
+              View Invoice
+            </button>
+            <button onclick="updateDraftOrder('${order.id}', ${JSON.stringify(lineItems).replace(/"/g, '&quot;')})">
+              Save Changes
+            </button>
+          </div>
+        </div>
+      `;
+
+      contentDiv.innerHTML = html;
+
+      // Add event listeners for price/quantity updates
+      document.querySelectorAll('.price-input, .quantity-input').forEach(input => {
+        input.addEventListener('change', updateLineTotals);
+      });
+    }
+
+    function updateLineTotals() {
+      const rows = document.querySelectorAll('table tbody tr');
+      rows.forEach((row, index) => {
+        const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+        const price = parseFloat(row.querySelector('.price-input').value) || 0;
+        const total = quantity * price;
+        row.querySelector('.line-total').textContent = total.toFixed(2);
+      });
+    }
+
+    async function updateDraftOrder(orderId, originalLineItems) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Saving adjustments...</div>';
+
+      try {
+        const updatedLineItems = originalLineItems.map((item, index) => ({
+          ...item,
+          quantity: parseInt(document.querySelector(`.quantity-input[data-index="${index}"]`).value),
+          unitPrice: parseFloat(document.querySelector(`.price-input[data-index="${index}"]`).value),
+        }));
+
+        const response = await fetch(`/api/draft-order/${orderId.replace('gid://shopify/DraftOrder/', '')}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lineItems: updatedLineItems }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save adjustments');
+        }
+
+        // Build summary of changes
+        let summaryHtml = '<div class="success">✓ Price adjustments saved locally!</div>';
+        summaryHtml += '<div style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 4px;">';
+        summaryHtml += '<strong>Adjustment Summary:</strong><br>';
+        updatedLineItems.forEach((item, index) => {
+          const original = originalLineItems[index];
+          const originalPrice = original.originalUnitPrice || 0;
+          const newPrice = item.unitPrice;
+          const diff = (newPrice - originalPrice).toFixed(2);
+          const diffSign = diff > 0 ? '+' : '';
+          summaryHtml += `<div style="margin: 8px 0; font-size: 13px;">
+            <strong>${item.title}</strong><br>
+            Original: $${parseFloat(originalPrice).toFixed(2)} → New: $${newPrice.toFixed(2)} <span style="color: ${diff > 0 ? '#d32f2f' : '#388e3c'}">(${diffSign}$${diff})</span>
+          </div>`;
+        });
+        summaryHtml += '</div>';
+
+        messageDiv.innerHTML = summaryHtml;
+      } catch (error) {
+        messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    // Allow Enter key to search
+    document.getElementById('draftOrderId').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') fetchDraftOrder();
+    });
+  </script>
+</body>
+</html>

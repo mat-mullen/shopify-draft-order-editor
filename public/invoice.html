@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Preview</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f5f5f5;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 60px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 40px;
+    }
+
+    .company-name {
+      font-size: 32px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .invoice-title {
+      font-size: 14px;
+      color: #999;
+      font-weight: 500;
+      letter-spacing: 2px;
+    }
+
+    .invoice-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .meta-label {
+      color: #999;
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      color: #333;
+      font-weight: 500;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+    }
+
+    thead {
+      background: #f9f9f9;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      padding: 12px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+    }
+
+    td {
+      padding: 16px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+
+    .item-name {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .price-original {
+      color: #999;
+      font-size: 12px;
+      text-decoration: line-through;
+    }
+
+    .price-adjusted {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .price-increase {
+      color: #d32f2f;
+      font-weight: 600;
+    }
+
+    .price-decrease {
+      color: #388e3c;
+      font-weight: 600;
+    }
+
+    .summary {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 40px;
+    }
+
+    .summary-table {
+      width: 300px;
+    }
+
+    .summary-table tr {
+      border: none;
+    }
+
+    .summary-table td {
+      border: none;
+      padding: 8px 0;
+    }
+
+    .summary-label {
+      color: #666;
+      text-align: right;
+      padding-right: 20px;
+    }
+
+    .summary-value {
+      text-align: right;
+      font-weight: 500;
+    }
+
+    .total-row {
+      border-top: 2px solid #333;
+      padding-top: 12px !important;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .adjustment-section {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 4px;
+      margin-bottom: 40px;
+      font-size: 13px;
+    }
+
+    .adjustment-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 12px;
+    }
+
+    .adjustment-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: #666;
+    }
+
+    .footer {
+      text-align: center;
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+      color: #999;
+      font-size: 12px;
+    }
+
+    .print-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #333;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .print-button:hover {
+      background: #555;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .container {
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .print-button {
+        display: none;
+      }
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+      padding: 20px;
+      border-radius: 4px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+
+  <div class="container" id="invoice">
+    <div class="loading">Loading invoice...</div>
+  </div>
+
+  <script>
+    async function loadInvoice() {
+      const params = new URLSearchParams(window.location.search);
+      const draftOrderId = params.get('id');
+
+      if (!draftOrderId) {
+        document.getElementById('invoice').innerHTML = '<div class="error">No order ID provided</div>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/draft-order/${draftOrderId}`);
+        if (!response.ok) throw new Error('Failed to load order');
+
+        const order = await response.json();
+        const adjustmentsResp = await fetch(`/api/draft-order/${draftOrderId}/adjustments`);
+        const adjustmentsData = await adjustmentsResp.json();
+        const adjustments = adjustmentsData.adjustments;
+
+        renderInvoice(order, adjustments, draftOrderId);
+      } catch (error) {
+        document.getElementById('invoice').innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    function renderInvoice(order, adjustments, draftOrderId) {
+      const lineItems = order.lineItems?.edges?.map(e => e.node) || [];
+      const subtotal = parseFloat(order.subtotalPrice) || 0;
+      const total = parseFloat(order.totalPrice) || 0;
+
+      let adjustedSubtotal = 0;
+      let adjustedTotal = 0;
+
+      const lineItemsHtml = lineItems.map((item, index) => {
+        let itemPrice = parseFloat(item.originalUnitPrice) || 0;
+        let itemTotal = itemPrice * item.quantity;
+
+        // Apply adjustments if they exist
+        if (adjustments && adjustments.lineItems && adjustments.lineItems[index]) {
+          const adjusted = adjustments.lineItems[index];
+          const newPrice = parseFloat(adjusted.unitPrice) || itemPrice;
+          itemTotal = newPrice * item.quantity;
+          adjustedSubtotal += itemTotal;
+
+          const diff = newPrice - itemPrice;
+          const diffDisplay = diff > 0
+            ? `<span class="price-increase">+$${Math.abs(diff).toFixed(2)}</span>`
+            : diff < 0
+            ? `<span class="price-decrease">-$${Math.abs(diff).toFixed(2)}</span>`
+            : '';
+
+          return `
+            <tr>
+              <td class="item-name">${item.title}</td>
+              <td style="text-align: center;">${item.quantity}</td>
+              <td style="text-align: right;">
+                ${itemPrice > 0 ? `<div class="price-original">$${itemPrice.toFixed(2)}</div>` : ''}
+                <div class="price-adjusted">$${newPrice.toFixed(2)}</div>
+                ${diffDisplay}
+              </td>
+              <td style="text-align: right; font-weight: 500;">$${itemTotal.toFixed(2)}</td>
+            </tr>
+          `;
+        } else {
+          adjustedSubtotal += itemTotal;
+          return `
+            <tr>
+              <td class="item-name">${item.title}</td>
+              <td style="text-align: center;">${item.quantity}</td>
+              <td style="text-align: right; font-weight: 500;">$${itemPrice.toFixed(2)}</td>
+              <td style="text-align: right; font-weight: 500;">$${itemTotal.toFixed(2)}</td>
+            </tr>
+          `;
+        }
+      }).join('');
+
+      adjustedTotal = adjustedSubtotal;
+
+      const customerName = order.customer
+        ? `${order.customer.firstName} ${order.customer.lastName}`
+        : 'Customer';
+
+      const adjustmentSummaryHtml = adjustments ? `
+        <div class="adjustment-section">
+          <div class="adjustment-title">Price Adjustments</div>
+          ${adjustments.lineItems.map((adj, index) => {
+            const item = lineItems[index];
+            const originalPrice = parseFloat(item.originalUnitPrice) || 0;
+            const newPrice = parseFloat(adj.unitPrice) || originalPrice;
+            const diff = newPrice - originalPrice;
+            if (Math.abs(diff) > 0.01) {
+              return `
+                <div class="adjustment-item">
+                  <span>${item.title}</span>
+                  <span>${diff > 0 ? '+' : ''}$${diff.toFixed(2)}</span>
+                </div>
+              `;
+            }
+            return '';
+          }).join('')}
+          <div style="border-top: 1px solid #ddd; margin-top: 12px; padding-top: 12px; display: flex; justify-content: space-between; font-weight: 600;">
+            <span>Total Adjustments</span>
+            <span>${(adjustedTotal - subtotal) >= 0 ? '+' : ''}$${(adjustedTotal - subtotal).toFixed(2)}</span>
+          </div>
+        </div>
+      ` : '';
+
+      const html = `
+        <div class="header">
+          <div class="company-name">INVOICE</div>
+          <div class="invoice-title">Order #${draftOrderId}</div>
+        </div>
+
+        <div class="invoice-meta">
+          <div>
+            <div class="meta-item">
+              <div class="meta-label">Bill To</div>
+              <div class="meta-value">${customerName}</div>
+              ${order.email ? `<div class="meta-value" style="font-size: 12px;">${order.email}</div>` : ''}
+            </div>
+          </div>
+          <div>
+            <div class="meta-item">
+              <div class="meta-label">Invoice Date</div>
+              <div class="meta-value">${new Date().toLocaleDateString()}</div>
+            </div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Price</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineItemsHtml}
+          </tbody>
+        </table>
+
+        ${adjustmentSummaryHtml}
+
+        <div class="summary">
+          <table class="summary-table">
+            <tr>
+              <td class="summary-label">Subtotal:</td>
+              <td class="summary-value">$${adjustedSubtotal.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td class="summary-label">Shipping:</td>
+              <td class="summary-value">$0.00</td>
+            </tr>
+            <tr>
+              <td class="summary-label">Tax:</td>
+              <td class="summary-value">$0.00</td>
+            </tr>
+            <tr class="total-row">
+              <td class="summary-label">Total:</td>
+              <td class="summary-value">$${adjustedTotal.toFixed(2)}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="footer">
+          <p>This is an invoice preview. Please contact us for any questions.</p>
+        </div>
+      `;
+
+      document.getElementById('invoice').innerHTML = html;
+    }
+
+    loadInvoice();
+  </script>
+</body>
+</html>
