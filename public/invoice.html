@@ -330,7 +330,7 @@
 
       const adjustmentSummaryHtml = adjustments ? `
         <div class="adjustment-section">
-          <div class="adjustment-title">Price Adjustments</div>
+          <div class="adjustment-title">Catch Weight Adjustment</div>
           ${adjustments.lineItems.map((adj, index) => {
             const item = lineItems[index];
             const originalPrice = parseFloat(item.originalUnitPrice) || 0;
@@ -347,7 +347,7 @@
             return '';
           }).join('')}
           <div style="border-top: 1px solid #ddd; margin-top: 12px; padding-top: 12px; display: flex; justify-content: space-between; font-weight: 600;">
-            <span>Total Adjustments</span>
+            <span>Total Adjustment</span>
             <span>${(adjustedTotal - subtotal) >= 0 ? '+' : ''}$${(adjustedTotal - subtotal).toFixed(2)}</span>
           </div>
         </div>

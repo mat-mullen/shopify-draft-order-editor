@@ -277,7 +277,7 @@
               <tr>
                 <th>Product</th>
                 <th>Quantity</th>
-                <th>Unit Price</th>
+                <th>Catch Weight Price</th>
                 <th>Total</th>
               </tr>
             </thead>
@@ -323,7 +323,7 @@
               View Invoice
             </button>
             <button onclick="updateDraftOrder('${order.id}', ${JSON.stringify(lineItems).replace(/"/g, '&quot;')})">
-              Save Changes
+              Adjust Catch Weight
             </button>
           </div>
         </div>
@@ -349,7 +349,7 @@
 
     async function updateDraftOrder(orderId, originalLineItems) {
       const messageDiv = document.getElementById('message');
-      messageDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Saving adjustments...</div>';
+      messageDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Adjusting catch weight...</div>';
 
       try {
         const updatedLineItems = originalLineItems.map((item, index) => ({
@@ -371,9 +371,9 @@
         }
 
         // Build summary of changes
-        let summaryHtml = '<div class="success">✓ Price adjustments saved locally!</div>';
+        let summaryHtml = '<div class="success">✓ Catch weight adjustment saved locally!</div>';
         summaryHtml += '<div style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 4px;">';
-        summaryHtml += '<strong>Adjustment Summary:</strong><br>';
+        summaryHtml += '<strong>Catch Weight Adjustment Summary:</strong><br>';
         updatedLineItems.forEach((item, index) => {
           const original = originalLineItems[index];
           const originalPrice = original.originalUnitPrice || 0;
@@ -382,7 +382,7 @@
           const diffSign = diff > 0 ? '+' : '';
           summaryHtml += `<div style="margin: 8px 0; font-size: 13px;">
             <strong>${item.title}</strong><br>
-            Original: $${parseFloat(originalPrice).toFixed(2)} → New: $${newPrice.toFixed(2)} <span style="color: ${diff > 0 ? '#d32f2f' : '#388e3c'}">(${diffSign}$${diff})</span>
+            Estimated: $${parseFloat(originalPrice).toFixed(2)} → Actual: $${newPrice.toFixed(2)} <span style="color: ${diff > 0 ? '#d32f2f' : '#388e3c'}">(${diffSign}$${diff})</span>
           </div>`;
         });
         summaryHtml += '</div>';
